@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { getSalesGrowthRate } from "@/actions";
 import * as d3 from "d3";
 
@@ -22,12 +22,13 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
   const padding = 0.4;
 
   const [interval, setInterval] = useState<"Year" | "Month" | "Day">("Month");
+  const [loading, setLoading] = useState(false);
   const [prevInterval, setPrevInterval] = useState(interval);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Data[]>([]);
   const [noOfPages, setNoOfPages] = useState(1);
+  const [disable, setDisable] = useState({ left: false, right: false });
   const [extent, setExtent] = useState(d3.extent(data, (d) => d.growthRate));
-  const svgRef = useRef(null);
 
   const xScale = useMemo(() => {
     return d3
@@ -35,7 +36,7 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
       .domain(data.map((d) => d.date))
       .range([0, boundsWidth])
       .padding(padding);
-  }, [data, boundsWidth]);
+  }, [data, width]);
 
   const yScale = useMemo(() => {
     const max = extent[1] && extent[1] > 100 ? extent[1] : 100;
@@ -43,14 +44,14 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
       .scaleLinear()
       .domain([max, 0])
       .range([0, boundsHeight / 2]);
-  }, [extent, boundsHeight]);
+  }, [extent, height]);
 
   const yScaleNeg = useMemo(() => {
     return d3
       .scaleLinear()
       .domain([-0, extent[0] && extent[0] < -100 ? extent[0] : -100])
       .range([boundsHeight / 2, boundsHeight]);
-  }, [extent, boundsHeight]);
+  }, [extent, height]);
 
   // The path
   const linePath = d3
@@ -58,94 +59,22 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
     .x((d) => xScale(d.date)!)
     .y((d) => yScale(d.growthRate))(data);
 
-  // Axes, Axes text, background grid lines
-  const grid = (
-    <g>
-      <g>
-        {/* Y axis */}
-        <line x1={0} y1={0} x2={0} y2={height - MARGIN.bottom - MARGIN.top} className="stroke-gray-600" />
-
-        {/* Y axis positive percent */}
-        {yScale.ticks(5).map((growthRate, i) => {
-          const yScaleValue = yScale(growthRate);
-          return (
-            <g key={i}>
-              {/* Y axis text */}
-              <text x={-10} y={yScaleValue} textAnchor="end" alignmentBaseline="central" fontWeight={500} fontSize={12}>
-                {`${growthRate}%`}
-              </text>
-              {/* Grid Line */}
-              <line
-                y1={yScaleValue}
-                y2={yScaleValue}
-                x1={0}
-                x2={boundsWidth}
-                className={growthRate === 0 ? "stroke-black" : "stroke-gray-300"}
-              />
-            </g>
-          );
-        })}
-        {/* Y axis negative percent */}
-        {yScaleNeg.ticks(5).map((growthRate, i) => {
-          const yScaleValue = yScaleNeg(growthRate);
-          return (
-            <g x={0} y={boundsHeight / 2} key={i}>
-              {/* Y axis text */}
-              <text x={-10} y={yScaleValue} textAnchor="end" alignmentBaseline="central" fontWeight={500} fontSize={12}>
-                {`${growthRate}%`}
-              </text>
-              {/* Grid Line */}
-              <line y1={yScaleValue} y2={yScaleValue} x1={0} x2={boundsWidth} className="stroke-gray-300" />
-            </g>
-          );
-        })}
-      </g>
-      <g>
-        {/* X axis line */}
-        <line y1={yScaleNeg(-100)} y2={yScaleNeg(-100)} x1={0} x2={boundsWidth} className="stroke-gray-600" />
-        {/* X axis text */}
-        {data?.map((d, i) => {
-          const date = new Date(d.date);
-          let formattedDate = "";
-
-          const month = date.toLocaleString("en-IN", { month: "short" });
-          const year = date.getFullYear();
-          const day = date.toLocaleString("en-IN", { dateStyle: "medium" });
-
-          if (interval === "Month") formattedDate = month + " " + year;
-          else if (interval === "Year") formattedDate = year.toString();
-          else if (interval === "Day") formattedDate = day;
-          return (
-            <text
-              key={i}
-              x={xScale(d.date)}
-              y={yScaleNeg(-100) + 20}
-              alignmentBaseline="central"
-              textAnchor="middle"
-              fontSize={13}
-              fontWeight={500}
-              className="font-roboto"
-            >
-              {formattedDate}
-            </text>
-          );
-        })}
-      </g>
-    </g>
-  );
-
   const handlePrevious = () => {
-    if (page < noOfPages) setPage((prev) => prev + 1);
+    if (page >= noOfPages || loading) setDisable((prev) => ({ ...prev, left: true }));
+    else setPage((prev) => prev + 1);
   };
 
   const handleNext = () => {
-    if (page > 1) setPage((prev) => prev - 1);
+    if (page <= 1 || loading) setDisable((prev) => ({ ...prev, right: true }));
+    else setPage((prev) => prev - 1);
   };
 
   useEffect(() => {
     // get Sales Growth rate when interval changes but set page to 1
     // because page could be set to a higher number of the previous
     // interval pages than the pages available in this current interval
+    setLoading(true);
+    setDisable({ left: true, right: true });
     if (prevInterval !== interval) {
       getSalesGrowthRate({ interval, page: 1, limit: 6 })
         .then((result) => {
@@ -153,27 +82,38 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
             // reverse the data to display data in ascending order
             setData(result?.data.reverse());
             setNoOfPages(result.noOfPages);
-          } else setData([]);
+            setLoading(false);
+            setDisable({ left: false, right: false });
+          } else {
+            setData([]);
+          }
 
           // Reset the page
           setPage(1);
         })
         .catch(() => {
+          setLoading(false);
           toast.error("An Unexpected error has occured.");
         });
       setPrevInterval(interval);
-    } else
+    } else {
       getSalesGrowthRate({ interval, page, limit: 6 })
         .then((result) => {
           // reverse the data to display data in ascending order
           if (result?.data.length) {
             setData(result?.data.reverse());
             setNoOfPages(result.noOfPages);
-          } else setData([]);
+            setLoading(false);
+            setDisable({ left: false, right: false });
+          } else {
+            setData([]);
+          }
         })
         .catch(() => {
           toast.error("An Unexpected error has occured.");
+          setLoading(false);
         });
+    }
   }, [interval, page]);
 
   useEffect(() => {
@@ -203,23 +143,96 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
                 <SelectItem value="Day">Day</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={handlePrevious} className="p-1 h-fit rounded-full">
+            <Button onClick={handlePrevious} disabled={disable.left} className="p-1 h-fit rounded-full">
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <Button onClick={handleNext} className="p-1 h-fit rounded-full">
+            <Button onClick={handleNext} disabled={page === 1 || disable.right} className="p-1 h-fit rounded-full">
               <ArrowRight className="w-5 h-5" />
             </Button>
           </div>
         </div>
 
         <svg width={width} height={height}>
-          <g
-            ref={svgRef}
-            width={boundsWidth}
-            height={boundsHeight}
-            transform={`translate(${[MARGIN.left, MARGIN.top].join(",")})`}
-          >
-            {grid}
+          <g width={boundsWidth} height={boundsHeight} transform={`translate(${[MARGIN.left, MARGIN.top].join(",")})`}>
+            {/* Y axis */}
+            <line x1={0} y1={0} x2={0} y2={height - MARGIN.bottom - MARGIN.top} className="stroke-gray-600" />
+
+            {/* Y axis positive percent text */}
+            {yScale.ticks(5).map((growthRate, i) => {
+              const yScaleValue = yScale(growthRate);
+              return (
+                <g key={i}>
+                  {/* Y axis text */}
+                  <text
+                    x={-10}
+                    y={yScaleValue}
+                    textAnchor="end"
+                    alignmentBaseline="central"
+                    fontSize={13}
+                    fontWeight={500}
+                  >
+                    {`${growthRate}%`}
+                  </text>
+                  {/* Grid Line */}
+                  <line
+                    y1={yScaleValue}
+                    y2={yScaleValue}
+                    x1={0}
+                    x2={boundsWidth}
+                    className={growthRate === 0 ? "stroke-black" : "stroke-gray-300"}
+                  />
+                </g>
+              );
+            })}
+            {/* Y axis negative percent text*/}
+            {yScaleNeg.ticks(5).map((growthRate, i) => {
+              const yScaleValue = yScaleNeg(growthRate);
+              return (
+                <g x={0} y={boundsHeight / 2} key={i}>
+                  {/* Y axis text */}
+                  <text
+                    x={-10}
+                    y={yScaleValue}
+                    textAnchor="end"
+                    alignmentBaseline="central"
+                    fontSize={13}
+                    fontWeight={500}
+                  >
+                    {`${growthRate}%`}
+                  </text>
+                  {/* Grid Line */}
+                  <line y1={yScaleValue} y2={yScaleValue} x1={0} x2={boundsWidth} className="stroke-gray-300" />
+                </g>
+              );
+            })}
+            {/* X axis line */}
+            <line y1={yScaleNeg(-100)} y2={yScaleNeg(-100)} x1={0} x2={boundsWidth} className="stroke-gray-600" />
+            {/* X axis text */}
+            {data?.map((d, i) => {
+              const date = new Date(d.date);
+              let formattedDate = "";
+
+              const month = date.toLocaleString("en-IN", { month: "short" });
+              const year = date.getFullYear();
+              const day = date.toLocaleString("en-IN", { dateStyle: "medium" });
+
+              if (interval === "Month") formattedDate = month + " " + year;
+              else if (interval === "Year") formattedDate = year.toString();
+              else if (interval === "Day") formattedDate = day;
+              return (
+                <text
+                  key={i}
+                  x={xScale(d.date)}
+                  y={yScaleNeg(-100) + 20}
+                  alignmentBaseline="central"
+                  textAnchor="middle"
+                  fontSize={13}
+                  fontWeight={500}
+                >
+                  {formattedDate}
+                </text>
+              );
+            })}
 
             {/* Path of graph */}
             <path
@@ -228,6 +241,7 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
               stroke="black"
               fill="none"
               strokeWidth={1.5}
+              opacity={loading ? 0.1 : 1}
             ></path>
 
             {/* Circles */}
@@ -239,6 +253,7 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
                 cy={yScale(d.growthRate)}
                 r={4}
                 fill="black"
+                opacity={loading ? 0.1 : 1}
               />
             ))}
           </g>
