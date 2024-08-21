@@ -67,3 +67,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+.font-roboto {
+  font-family: "Roboto", sans-serif;
+  font-style: normal;
+}

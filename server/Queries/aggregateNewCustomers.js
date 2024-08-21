@@ -21,8 +21,15 @@ function aggregateNewCustomers({ format, limit, page }) {
             },
           },
           {
+            $project: {
+              date: "$_id",
+              _id: 0,
+              totalCustomers: 1,
+            },
+          },
+          {
             $sort: {
-              _id: -1,
+              date: -1,
             },
           },
           {

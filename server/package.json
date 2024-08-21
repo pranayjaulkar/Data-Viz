@@ -5,7 +5,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --env-file=.env index.js",
-    "prod": "nodemon --env-file=.env.production index.js",
+    "prod": "cd ../client && npm run build && cd ../server && nodemon --env-file=.env --env-file=.env.production index.js",
     "start": "node index.js"
   },
   "keywords": [],

@@ -1,13 +1,11 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const cors = require("cors");
 const path = require("path");
 const PORT = process.env.PORT;
 const DB_CONNECTION_URL = process.env.DB_CONNECTION_URL;
 const aggregateSalesByDate = require("./Queries/aggregateSalesByDate");
 const aggregateSalesByQuarter = require("./Queries/aggregateSalesByQuarter");
 const aggregateSalesByGrowthRate = require("./Queries/aggregateSalesByGrowthRate");
-const aggregateNewCustomers = require("./Queries/aggregateNewCustomers");
 const aggregateNewCustomers = require("./Queries/aggregateNewCustomers");
 const aggregateRepeatedCustomers = require("./Queries/aggregateRepeatedCustomers");
 
@@ -19,8 +17,8 @@ if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../client/dist/")));
 } else {
   app.use(
-    cors({
-      origin: "http://localhost:3000",
+    require("cors")({
+      origin: process.env.FRONTEND_DEV_URL,
     })
   );
 }
@@ -41,6 +39,10 @@ mongoose
     db = mongoose.connection;
   })
   .catch((err) => console.error("Could not connect to MongoDB", err));
+
+
+
+
 
 // Routes
 app.get("/api/sales", async (req, res) => {
@@ -96,10 +98,12 @@ app.get("/api/sales", async (req, res) => {
   }
 });
 
+
+
 app.get("/api/customers", async (req, res) => {
   let data = [];
   const { byMonth, byDay, repeatedCustomers, byLocation } = req.query;
-  const format = byDay ? "%Y %m %d" : byMonth ? "%Y %m" : "%Y";
+  const format = byDay ? "%Y-%m-%d" : byMonth ? "%Y-%m" : "%Y";
 
   const page = !req.query.page ? 1 : Number(req.query.page) > 0 ? req.query.page : 1;
   const limit = req.query.limit ? Number(req.query.limit) : 10;
@@ -156,9 +160,13 @@ app.get("/api/customers", async (req, res) => {
   else return res.json(null);
 });
 
+
+
 app.all("*", (req, res, next) => {
   next(new Error("Not found", "404 Not Found"));
 });
+
+
 
 app.use((error, req, res, next) => {
   console.log("err: ", error);
@@ -166,6 +174,8 @@ app.use((error, req, res, next) => {
   if (!error.message) error.message = "Something went wrong";
   res.status(error.statusCode).json({ error: error.message });
 });
+
+
 
 app.listen(PORT, () => {
   console.log(`Server listening on PORT ${PORT}`);

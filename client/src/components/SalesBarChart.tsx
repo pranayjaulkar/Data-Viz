@@ -5,6 +5,7 @@ import * as d3 from "d3";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "./ui/button";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import toast from "react-hot-toast";
 
 type SalesBarChartProps = {
   width?: number;
@@ -34,15 +35,13 @@ export default function SalesBarChart({ width = 600, height = 400, title }: Sale
       .domain(data.map((d) => d.date))
       .range([0, boundsWidth])
       .padding(BAR_PADDING);
-  }, [data, width]);
+  }, [data, boundsWidth]);
 
   const yScale = useMemo(() => {
     const extent = d3.extent(data.map((d) => d.totalAmount));
-    return d3
-      .scaleLinear()
-      .domain([extent[1] || 10, 0])
-      .range([0, boundsHeight]);
-  }, [data, height]);
+    const max = extent[1] && extent[1] > 10000 ? extent[1] : 10000;
+    return d3.scaleLinear().domain([max, 0]).range([0, boundsHeight]);
+  }, [data, boundsHeight]);
 
   const bars = data.map((d, i) => {
     const y = yScale(d.totalAmount);
@@ -82,8 +81,16 @@ export default function SalesBarChart({ width = 600, height = 400, title }: Sale
     return (
       <g key={i}>
         <g>
-          {/* Y axis text */}
-          <text x={-10} y={yScaleValue} textAnchor="end" alignmentBaseline="central" fontWeight={500} fontSize={12}>
+          {/* Y axis text/amount in rupees */}
+          <text
+            x={-10}
+            y={yScaleValue}
+            textAnchor="end"
+            alignmentBaseline="central"
+            fontWeight={500}
+            className="font-roboto"
+            fontSize={13}
+          >
             {IndianRupee.format(totalAmount)}
           </text>
           {/* Y axis line */}
@@ -94,19 +101,34 @@ export default function SalesBarChart({ width = 600, height = 400, title }: Sale
         <g>
           {/* X axis line */}
           <line y1={yScale(0)} y2={yScale(0)} x1={0} x2={boundsWidth} className="stroke-gray-600" />
-          {/* X axis text */}
-          {data?.reverse().map((d) => (
-            <text
-              key={d.date}
-              x={xScale(d.date)! + xScale.bandwidth() / 2}
-              y={yScale(0) + 20}
-              alignmentBaseline="central"
-              textAnchor="middle"
-              fontSize={12}
-            >
-              {d.date.toString()}
-            </text>
-          ))}
+          {/* X axis text/dates */}
+          {data?.map((d, i) => {
+            const date = new Date(d.date);
+            let formattedDate = "";
+
+            const month = date.toLocaleString("en-IN", { month: "short" });
+            const year = date.getFullYear();
+            const day = date.toLocaleString("en-IN", { dateStyle: "medium" });
+
+            if (interval === "Month") formattedDate = month + " " + year;
+            else if (interval === "Year") formattedDate = year.toString();
+            else if (interval === "Day") formattedDate = day;
+            else if (interval === "Quarter") formattedDate = d.date;
+
+            return (
+              <text
+                key={i}
+                x={(xScale(d.date) || 0) + xScale.bandwidth() / 2}
+                y={yScale(0) + 20}
+                alignmentBaseline="central"
+                textAnchor="middle"
+                fontSize={13}
+                className="font-roboto"
+              >
+                {formattedDate}
+              </text>
+            );
+          })}
         </g>
       </g>
     );
@@ -121,34 +143,35 @@ export default function SalesBarChart({ width = 600, height = 400, title }: Sale
   };
 
   useEffect(() => {
-    if (interval === "Quarter")
-      getSales({ interval, page, limit: 4 }).then((result) => {
-        setData(result?.data);
-        setNoOfPages(result.noOfPages);
-      });
-    else
-      getSales({ interval, page }).then((result) => {
-        setData(result?.data);
-        setNoOfPages(result.noOfPages);
-      });
-  }, [page]);
-
-  // get Sales when interval changes but set page to 1
-  // because page could be set to a higher number of the previous
-  // interval pages than the pages available in this current interval
-  useEffect(() => {
+    // get Sales when interval changes but set page to 1
+    // because page could be set to a higher number of the previous
+    // interval pages than the pages available in this current interval
     if (prevInterval !== interval) {
-      getSales({ interval, page: 1, limit: interval === "Quarter" ? 4 : 5 }).then((result) => {
-        setData(result?.data);
-        setPage(1);
-        setNoOfPages(result.noOfPages);
-      });
+      getSales({ interval, page: 1, limit: interval === "Quarter" ? 4 : 5 })
+        .then((result) => {
+          if (result?.data.length) {
+            // reverse the data to display data in ascending order
+            setData(result?.data.reverse());
+            setNoOfPages(result.noOfPages);
+          } else setData([]);
+          setPage(1);
+        })
+        .catch(() => {
+          toast.error("An Unexpected error has occured.");
+        });
       setPrevInterval(interval);
     } else
-      getSales({ interval, page }).then((result) => {
-        setData(result?.data);
-        setNoOfPages(result.noOfPages);
-      });
+      getSales({ interval, page, limit: interval === "Quarter" ? 4 : 5 })
+        .then((result) => {
+          // reverse the data to display data in ascending order
+          if (result?.data.length) {
+            setData(result?.data.reverse());
+            setNoOfPages(result.noOfPages);
+          } else setData([]);
+        })
+        .catch(() => {
+          toast.error("An Unexpected error has occured.");
+        });
   }, [interval, page]);
 
   return (

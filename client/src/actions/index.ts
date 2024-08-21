@@ -1,4 +1,5 @@
 import axios from "axios";
+import toast from "react-hot-toast";
 
 const api = axios.create({ baseURL: import.meta.env.DEV ? "http://localhost:5000/api" : "/api" });
 
@@ -16,6 +17,7 @@ export const getSales = async ({
     return res.data;
   } catch (error) {
     console.log("error: ", error);
+    toast.error("An unexpected error has ocurred");
   }
 };
 
@@ -35,10 +37,11 @@ export const getSalesGrowthRate = async ({
     return res.data;
   } catch (error) {
     console.log("error: ", error);
+    toast.error("An unexpected error has ocurred");
   }
 };
 
-export const getNewCustomersData = async ({
+export const getNewCustomers = async ({
   interval,
   page = 1,
   limit = 5,
@@ -54,6 +57,7 @@ export const getNewCustomersData = async ({
     return res.data;
   } catch (error) {
     console.log("error: ", error);
+    toast.error("An unexpected error has ocurred");
   }
 };
 
@@ -73,5 +77,18 @@ export const getRepeatedCustomers = async ({
     return res.data;
   } catch (error) {
     console.log("error: ", error);
+    toast.error("An unexpected error has ocurred");
+  }
+};
+
+export const getCustomersByLocation = async ({ page = 1, limit = 5 }: { page?: number; limit?: number }) => {
+  try {
+    const res = await api.get("/customers", {
+      params: { page, limit },
+    });
+    return res.data;
+  } catch (error) {
+    console.log("error: ", error);
+    toast.error("An unexpected error has ocurred");
   }
 };
