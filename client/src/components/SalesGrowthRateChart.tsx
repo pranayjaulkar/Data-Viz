@@ -143,7 +143,11 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
                 <SelectItem value="Day">Day</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={handlePrevious} disabled={disable.left} className="p-1 h-fit rounded-full">
+            <Button
+              onClick={handlePrevious}
+              disabled={page === noOfPages || disable.left}
+              className="p-1 h-fit rounded-full"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <Button onClick={handleNext} disabled={page === 1 || disable.right} className="p-1 h-fit rounded-full">
@@ -241,7 +245,7 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
               stroke="black"
               fill="none"
               strokeWidth={1.5}
-              opacity={loading ? 0.1 : 1}
+              opacity={loading ? 0.3 : 1}
             ></path>
 
             {/* Circles */}
@@ -253,7 +257,7 @@ export default function SalesGrowthRateChart({ width = 600, height = 400, title 
                 cy={yScale(d.growthRate)}
                 r={4}
                 fill="black"
-                opacity={loading ? 0.1 : 1}
+                opacity={loading ? 0.3 : 1}
               />
             ))}
           </g>
