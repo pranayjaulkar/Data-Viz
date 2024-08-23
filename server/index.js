@@ -13,6 +13,13 @@ let db;
 
 const app = express();
 
+// Request logger
+app.use((req, res, next) => {
+  const time = new Date(Date.now());
+  console.log(`${time.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })}  ${req.method}  ${req.url}`);
+  next();
+});
+
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../client/dist/")));
 } else {
@@ -24,12 +31,6 @@ if (process.env.NODE_ENV === "production") {
 }
 
 app.use(express.json());
-// Request logger
-app.use((req, res, next) => {
-  const time = new Date(Date.now());
-  console.log(`${time.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })}  ${req.method}  ${req.url}`);
-  next();
-});
 
 // Connect to mongoose
 mongoose
@@ -39,10 +40,6 @@ mongoose
     db = mongoose.connection;
   })
   .catch((err) => console.error("Could not connect to MongoDB", err));
-
-
-
-
 
 // Routes
 app.get("/api/sales", async (req, res) => {
@@ -97,8 +94,6 @@ app.get("/api/sales", async (req, res) => {
     else return res.json(null);
   }
 });
-
-
 
 app.get("/api/customers", async (req, res) => {
   let data = [];
@@ -160,13 +155,9 @@ app.get("/api/customers", async (req, res) => {
   else return res.json(null);
 });
 
-
-
 app.all("*", (req, res, next) => {
   next(new Error("Not found", "404 Not Found"));
 });
-
-
 
 app.use((error, req, res, next) => {
   console.log("err: ", error);
@@ -174,8 +165,6 @@ app.use((error, req, res, next) => {
   if (!error.message) error.message = "Something went wrong";
   res.status(error.statusCode).json({ error: error.message });
 });
-
-
 
 app.listen(PORT, () => {
   console.log(`Server listening on PORT ${PORT}`);

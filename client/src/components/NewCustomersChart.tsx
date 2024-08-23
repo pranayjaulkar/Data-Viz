@@ -16,7 +16,7 @@ type NewCustomersChartProps = {
 type NewCustomersData = { date: string; totalCustomers: number };
 
 export default function NewCustomersChart({ width = 600, height = 400, title }: NewCustomersChartProps) {
-  const MARGIN = { top: 30, right: 30, bottom: 30, left: 100 };
+  const MARGIN = { top: 30, right: 30, bottom: 30, left: 30 };
   const boundsWidth = width - MARGIN.right - MARGIN.left;
   const boundsHeight = height - MARGIN.top - MARGIN.bottom;
   const PADDING = 0.3;
